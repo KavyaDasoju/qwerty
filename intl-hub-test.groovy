@@ -2,11 +2,11 @@ package com.mediator.main
 import com.mediator.common.Commons
 import groovy.json.JsonSlurper
 
-class INTLBuild {
+class HUBBuild {
    def context = [:]
    def script
 
-   INTLBuild(script, env, params){
+   HUBBuild(script, env, params){
      
       this.script = script
       this.context = context
@@ -15,46 +15,43 @@ class INTLBuild {
       this.context.slack_channel = "#medtest"
      
       /* Fetch all custom variables*/
-      this.context.repo = "IMOG-Mediator"
+      this.context.repo = "Denver_Hub"
       this.context.branch = "master"
       this.context.deploy_env = 'Production'
       this.context.active_core = "Both"
       this.context.build_type = 'Release'
       this.context.build_number = env.BUILD_NUMBER ? env.BUILD_NUMBER : params.BUILD_NUMBER
-      this.context.build_name = "IMOG-Mediator-" + "${this.context.build_number}"
+      this.context.build_name = "HUB-Release-" + "${this.context.build_number}"
       this.context.build_url = env.BUILD_URL ? env.BUILD_URL : params.BUILD_URL
       this.context.current_home = "/wwwroot/configuration/current/"
       this.context.backup_home =  "/srv/isilon/backups/config_backups/"
       this.context.git_home = "/tmp/tmp_git/*"
       this.context.tmp_git_home = "/tmp/tmp_git"
-      this.context.x_active_core="100.125.130.10"
-      this.context.y_active_core="100.125.130.17"
+      this.context.x_active_core="100.125.130.61"
+      this.context.y_active_core="100.125.130.68"
  
      
       //Assign a git repo
       this.context.project_repo = "https://github.inbcu.com/OnAirSystems/${this.context.repo}.git"
    }
    
-   //Initializing 
    def init(){
      startNotify();
      codeBuild();
      codeDeploy();
      completedNotify();
    }
-
-   //Send starting notification to slack
+   
    def startNotify(){
       script.node{
          script.stage('Slack Start Notify'){
-            script.println "${this.context.job_name}"
-def message = ":blush: *STARTED*\n_*IMOG Deployment*_ IS INPROGRESS. \n URL: ${this.context.build_url} "
+         script.println "${this.context.job_name}"
+         def message = ":blush: *STARTED*\n_*Denver_Hub Deployment*_ IS INPROGRESS. \n URL: ${this.context.build_url} "
          sendNotification(message)        
          }
       }
    }
-      
-      //Building the code
+
       def codeBuild(){
        script.node {
           script.deleteDir()
@@ -65,7 +62,7 @@ def message = ":blush: *STARTED*\n_*IMOG Deployment*_ IS INPROGRESS. \n URL: ${t
               try{    
                  script.println "${this.context.build_name} **** ${this.context.branch} ***** ${this.context.tmp_git_home}"
                  script.sh "rm -rf ${this.context.tmp_git_home}"
-                 checkoutGitRepo("${this.context.branch}","${this.context.tmp_git_home}","${this.context.project_repo}")  //checking out code from Git repo
+                 checkoutGitRepo("${this.context.branch}","${this.context.tmp_git_home}","${this.context.project_repo}")          
                  }catch(e){
                      script.println e
                  }                                          
@@ -77,7 +74,7 @@ def message = ":blush: *STARTED*\n_*IMOG Deployment*_ IS INPROGRESS. \n URL: ${t
        }
    }
 
-   //Deploying the code
+
    def codeDeploy(){
       script.node {
          script.stage('Code Deploy'){
@@ -87,21 +84,17 @@ def message = ":blush: *STARTED*\n_*IMOG Deployment*_ IS INPROGRESS. \n URL: ${t
          script.sh "rsync -avr ${this.context.tmp_git_home} ${this.context.script_path}"
         script.sh "ls ; pwd"
 
-         script.println "=== Starting deployment on Intl-Mediator ==="
+         script.println "=== Starting deployment on HUB-Mediator ==="
         script.println "${this.context.current_home}"
-        // read the active_code parameter
         if (this.context.active_core=="Both"){
-          // if active_core parameter is both, then deploying in both the core
          deploy(this.context.x_active_core)
          deploy(this.context.y_active_core)
           }
         else if(this.context.active_core=="X-Core") { 
-          // deploy in x core
           deploy(this.context.x_active_core)
         }
         else if(this.context.active_core=="Y-Core")
         {
-          // deploy in y core
           deploy(this.context.y_active_core)
         }
         else
@@ -114,13 +107,12 @@ def message = ":blush: *STARTED*\n_*IMOG Deployment*_ IS INPROGRESS. \n URL: ${t
       }
   }
 
-// complete slack notification
 def completedNotify(){
       script.node{
          script.stage('Slack Complete Notify'){
 script.currentBuild.displayName = "${this.context.build_name}"        
 script.println "${this.context.job_name}"
-def message = ":+1: *SUCCESS*\n_*IMOG Deployment Completed*_. \n Please make your config changes \nURL: ${this.context.build_url}"
+def message = ":+1: *SUCCESS*\n_*Denver_Hub Deployment Completed*_. \n Please make your config changes \nURL: ${this.context.build_url}"
          sendNotification(message)        
          }
       }
@@ -133,10 +125,9 @@ def message = ":+1: *SUCCESS*\n_*IMOG Deployment Completed*_. \n Please make you
       }
    }
 def deploy(core) {
-   //script to create the backup before updating x and y core
    script.sh '''eval "$(sudo ssh -o StrictHostKeyChecking=no -t "root@"'''+core+''' \' \\
-  bkp_curr="$(cd "\'"'''+this.context.current_home+'''"\'" && tar -zvcPf ${HOSTNAME}_release_$(date +%d-%m-%Y).tgz *)" \\
-  mv_bkp="$(mv "\'"'''+this.context.current_home+'''"\'"${HOSTNAME}_release_$(date +%d-%m-%Y).tgz "\'"'''+this.context.backup_home+'''"\'")" \\
+  bkp_curr="$(cd "\'"'''+current_home+'''"\'" && tar -zvcPf ${HOSTNAME}_release_$(date +%d-%m-%Y).tgz *)" \\
+  mv_bkp="$(mv "\'"'''+current_home+'''"\'"${HOSTNAME}_release_$(date +%d-%m-%Y).tgz "\'"'''+backup_home+'''"\'")" \\
   ex="$(exit)"\')"
 
 echo "Backup complete"
@@ -147,7 +138,7 @@ find . -not -name \'*.jar\' -type f -exec dos2unix --keepdate {} \\;
 
 echo "${core}"
 
-sudo rsync -arov -p --chmod=+x  --delete '''+this.context.tmp_git_home+'''/current/* -e \'ssh -o StrictHostKeyChecking=no -t \' root@'''+core+''':'''+this.context.current_home+'''
+sudo rsync -arov -p --chmod=+x  --delete '''+this.context.tmp_git_home+'''/current/* -e \'ssh -o StrictHostKeyChecking=no -t \' root@'''+core+''':'''+current_home+'''
 '''
 }
 
