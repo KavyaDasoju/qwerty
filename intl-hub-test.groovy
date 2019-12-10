@@ -62,7 +62,8 @@ class HUBBuild {
               try{    
                  script.println "${this.context.build_name} **** ${this.context.branch} ***** ${this.context.tmp_git_home}"
                  script.sh "rm -rf ${this.context.tmp_git_home}"
-                 checkoutGitRepo("${this.context.branch}","${this.context.tmp_git_home}","${this.context.project_repo}")          
+                 checkoutGitRepo("${this.context.branch}","${this.context.tmp_git_home}","${this.context.project_repo}") 
+                 rm -rf u-pcp-*
                  }catch(e){
                      script.println e
                  }                                          
@@ -126,8 +127,8 @@ def message = ":+1: *SUCCESS*\n_*Denver_Hub Deployment Completed*_. \n Please ma
    }
 def deploy(core) {
    script.sh '''eval "$(sudo ssh -o StrictHostKeyChecking=no -t "root@"'''+core+''' \' \\
-  bkp_curr="$(cd "\'"'''+current_home+'''"\'" && tar -zvcPf ${HOSTNAME}_release_$(date +%d-%m-%Y).tgz *)" \\
-  mv_bkp="$(mv "\'"'''+current_home+'''"\'"${HOSTNAME}_release_$(date +%d-%m-%Y).tgz "\'"'''+backup_home+'''"\'")" \\
+  bkp_curr="$(cd "\'"'''+this.context.current_home+'''"\'" && tar -zvcPf ${HOSTNAME}_release_$(date +%d-%m-%Y).tgz *)" \\
+  mv_bkp="$(mv "\'"'''+this.context.current_home+'''"\'"${HOSTNAME}_release_$(date +%d-%m-%Y).tgz "\'"'''+this.context.backup_home+'''"\'")" \\
   ex="$(exit)"\')"
 
 echo "Backup complete"
@@ -138,7 +139,7 @@ find . -not -name \'*.jar\' -type f -exec dos2unix --keepdate {} \\;
 
 echo "${core}"
 
-sudo rsync -arov -p --chmod=+x  --delete '''+this.context.tmp_git_home+'''/current/* -e \'ssh -o StrictHostKeyChecking=no -t \' root@'''+core+''':'''+current_home+'''
+sudo rsync -arov -p --chmod=+x  --delete '''+this.context.tmp_git_home+'''/current/* -e \'ssh -o StrictHostKeyChecking=no -t \' root@'''+core+''':'''+this.context.current_home+'''
 '''
 }
 
